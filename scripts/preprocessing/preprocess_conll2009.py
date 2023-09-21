@@ -8,20 +8,23 @@ def parse(
     path,
     keep_pos_tags=False,
     keep_lemmas=False,
+    keep_dep_info=False,
     add_predicate_pos=False,
     only_verbs=False,
-    czech=False
+    czech=False,
 ):
-    verb_pos_set = {'VBD', 'VBZ', 'VBG', 'VBP', 'VBN', 'MD', 'VB', 'PRF'}
+    verb_pos_set = {"VBD", "VBZ", "VBG", "VBP", "VBN", "MD", "VB", "PRF"}
     data = {}
-    sense_vocabulary = {'_', '<UNK>'}
-    role_vocabulary = {'_', '<UNK>'}
+    sense_vocabulary = {"_", "<UNK>"}
+    role_vocabulary = {"_", "<UNK>"}
 
     with open(path) as f:
         word_index = 0
         sentence_words = []
         sentence_lemmas = []
         sentence_pos_tags = []
+        sentence_dep_labels = []
+        sentence_dep_heads = []
         sentence_predicates = []
         sentence_predicate_indices = []
         sentence_roles = []
@@ -30,28 +33,36 @@ def parse(
             line = line.strip()
             if not line:
                 sentence_roles = list(zip(*sentence_roles))
-                
+
                 annotations = {}
-                for predicate_index, roles in zip(sentence_predicate_indices, sentence_roles):
-                    if not only_verbs or sentence_pos_tags[predicate_index] in verb_pos_set:
+                for predicate_index, roles in zip(
+                    sentence_predicate_indices, sentence_roles
+                ):
+                    if (
+                        not only_verbs
+                        or sentence_pos_tags[predicate_index] in verb_pos_set
+                    ):
                         predicate_sense = sentence_predicates[predicate_index]
                         sense_vocabulary.add(predicate_sense)
                         role_vocabulary.update(roles)
 
                         annotations[predicate_index] = {
-                            'predicate': predicate_sense,
-                            'roles': roles,
+                            "predicate": predicate_sense,
+                            "roles": roles,
                         }
 
                 sentence_data = {
-                    'words': sentence_words,
-                    'annotations': annotations,
+                    "words": sentence_words,
+                    "annotations": annotations,
                 }
-                
+
                 if keep_pos_tags:
-                    sentence_data['pos_tags'] = sentence_pos_tags
+                    sentence_data["pos_tags"] = sentence_pos_tags
                 if keep_lemmas:
-                    sentence_data['lemmas'] = sentence_lemmas
+                    sentence_data["lemmas"] = sentence_lemmas
+                if keep_dep_info:
+                    sentence_data["dep_labels"] = sentence_dep_labels
+                    sentence_data["dep_heads"] = sentence_dep_heads
 
                 data[len(data)] = sentence_data
 
@@ -59,12 +70,14 @@ def parse(
                 sentence_words = []
                 sentence_lemmas = []
                 sentence_pos_tags = []
+                sentence_dep_labels = []
+                sentence_dep_heads = []
                 sentence_predicates = []
                 sentence_predicate_indices = []
                 sentence_roles = []
                 continue
 
-            parts = line.split('\t')
+            parts = line.split("\t")
 
             word = parts[1].strip()
             sentence_words.append(word)
@@ -75,16 +88,22 @@ def parse(
             pos_tag = parts[4].strip()
             sentence_pos_tags.append(pos_tag)
 
+            dep_label = parts[11].strip()
+            sentence_dep_labels.append(dep_label)
+
+            dep_head = int(parts[9]) - 1
+            sentence_dep_heads.append(dep_head)
+
             predicate = parts[13].strip()
-            if predicate != '_':
+            if predicate != "_":
                 sentence_predicate_indices.append(word_index)
 
                 if add_predicate_pos and pos_tag.upper() in verb_pos_set:
-                    predicate_lemma, predicate_number = predicate.split('.')
-                    predicate = '{}-v.{}'.format(predicate_lemma, predicate_number)
+                    predicate_lemma, predicate_number = predicate.split(".")
+                    predicate = "{}-v.{}".format(predicate_lemma, predicate_number)
 
-                if czech and predicate[:3] != 'v-w':
-                    sentence_predicates.append('[no-sense]')
+                if czech and predicate[:3] != "v-w":
+                    sentence_predicates.append("[no-sense]")
                 else:
                     sentence_predicates.append(predicate)
 
@@ -95,8 +114,8 @@ def parse(
             sentence_roles.append(roles)
             word_index += 1
 
-    logging.info('Found {} senses'.format(len(sense_vocabulary)))
-    logging.info('Found {} roles'.format(len(role_vocabulary)))
+    logging.info("Found {} senses".format(len(sense_vocabulary)))
+    logging.info("Found {} roles".format(len(role_vocabulary)))
     return data
 
 
@@ -106,64 +125,73 @@ def write_parsed_data(data, path):
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
 
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         f.write(output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--input',
+        "--input",
         type=str,
         required=True,
-        dest='input_path',
-        help='Path to the CoNLL-2009 file to preprocess.')
+        dest="input_path",
+        help="Path to the CoNLL-2009 file to preprocess.",
+    )
     parser.add_argument(
-        '--output',
+        "--output",
         type=str,
         required=True,
-        dest='output_path',
-        help='Path to the output file.')
+        dest="output_path",
+        help="Path to the output file.",
+    )
     parser.add_argument(
-        '--keep_pos_tags',
-        action='store_true',
-        help='Keep the POS tags when parsing the dataset.')
+        "--keep_pos_tags",
+        action="store_true",
+        help="Keep the POS tags when parsing the dataset.",
+    )
     parser.add_argument(
-        '--keep_lemmas',
-        action='store_true',
-        help='Keep the lemmas when parsing the dataset.')
+        "--keep_lemmas",
+        action="store_true",
+        help="Keep the lemmas when parsing the dataset.",
+    )
     parser.add_argument(
-        '--add_predicate_pos',
-        action='store_true',
-        help='Add a pos label to the predicate sense label (may be useful in English).')
+        "--keep_dep_info",
+        action="store_true",
+        help="Keep the dependency information when parsing the dataset.",
+    )
     parser.add_argument(
-        '--only_verbs',
-        action='store_true',
-        help='Only keep verbs in the dataset.')
+        "--add_predicate_pos",
+        action="store_true",
+        help="Add a pos label to the predicate sense label (may be useful in English).",
+    )
     parser.add_argument(
-        '--czech',
-        action='store_true',
-        help='For the Czech dataset.')
+        "--only_verbs", action="store_true", help="Only keep verbs in the dataset."
+    )
+    parser.add_argument("--czech", action="store_true", help="For the Czech dataset.")
     parser.add_argument(
-        '--log',
+        "--log",
         type=str,
-        default='WARNING',
-        dest='loglevel',
-        help='Log level. Default = WARNING.')
+        default="WARNING",
+        dest="loglevel",
+        help="Log level. Default = WARNING.",
+    )
 
     args = parser.parse_args()
 
     logging.basicConfig(level=getattr(logging, args.loglevel.upper()))
-    logging.info('Parsing {}...'.format(args.input_path))
+    logging.info("Parsing {}...".format(args.input_path))
 
     parsed_data = parse(
         args.input_path,
         keep_pos_tags=args.keep_pos_tags,
         keep_lemmas=args.keep_lemmas,
+        keep_dep_info=args.keep_dep_info,
         add_predicate_pos=args.add_predicate_pos,
         only_verbs=args.only_verbs,
-        czech=args.czech)
+        czech=args.czech,
+    )
 
     write_parsed_data(parsed_data, args.output_path)
 
-    logging.info('Done!')
+    logging.info("Done!")
