@@ -7,7 +7,8 @@ data/original/united/**/*.conllu
 data/preprocessed/conll2009/**/CoNLL2009*.json
 data/preprocessed/conll2012/**/CoNLL2012*.json
 data/preprocessed/ontonotes/**/ontonotes*.json
-data/preprocessed/united/**/united*.json
+
+data/united/**/united*.json
 
 # Resources
 data/resources/*
@@ -20,6 +21,7 @@ logs/conll2009/**/*
 logs/conll2012/**/*
 logs/ontonotes/**/*
 logs/united/**/*
+lightning_logs/**/*
 
 # Predictions
 predictions/**/*.txt

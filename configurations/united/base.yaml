@@ -210,7 +210,7 @@ model:
 data:
 
   #   (type: str)
-  vocabulary_path: data/preprocessed/united/en/dependency/vocabulary.extended.json
+  vocabulary_path: data/preprocessed/united/en/dependency/vocabulary.json
 
   #   (type: Union[str, null], default: null)
   train_path: data/preprocessed/united/en/dependency/united_train.json
