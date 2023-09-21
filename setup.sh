@@ -16,7 +16,7 @@ else
 fi
 
 # install dependencies
-conda install -y pytorch-scatter -c pyg
+conda install -y pytorch-scatter pyg -c pyg
 
 # install requirements
 pip install -r requirements.txt

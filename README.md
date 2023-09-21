@@ -456,7 +456,7 @@ export PYTHONPATH="$PWD" && \
 {'sentence_id': 0, 'words': ['The', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog', '.'], 'predictions': {4: {'predicate': 'jump.03', 'roles': {(0, 4): 'ARG0', (5, 9): 'ARGM-DIR'}}}}
 ```
 
-Under the hood, we use [Stanza](https://stanfordnlp.github.io/stanza/) to preprocess the text. Thanks Stanza!
+Under the hood, we use [trankit](https://github.com/nlp-uoregon/trankit) to preprocess the text. Thanks trankit!
 
 
 ## Acknowledgements

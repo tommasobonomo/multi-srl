@@ -2,7 +2,7 @@ gradio==3.3.1
 jsonargparse==4.13.3
 omegaconf==2.2.2
 pytorch-lightning[extra]==1.7.5
-stanza==1.4.2
 torch==1.12
+trankit==1.1.1
 transformers==4.20.1
 wandb==0.15.8

@@ -67,14 +67,16 @@ class SrlDataset(Dataset):
 
         for i, sentence in enumerate(data):
             sentence_id = i
-            words = SrlDataset.process_words([w.text for w in sentence.words])
-            lemmas = [w.lemma for w in sentence.words]
-            pos_tags = [w.upos for w in sentence.words]
+            words = SrlDataset.process_words([w["text"] for w in sentence["tokens"]])
+            lemmas = [w["lemma"] for w in sentence["tokens"]]
+            pos_tags = [w["upos"] for w in sentence["tokens"]]
 
             sample = {
                 "sentence_id": sentence_id,
                 "words": words,
                 "lemmas": lemmas,
+                "dep_heads": [w["head"] for w in sentence["tokens"]],
+                "dep_labels": [w["deprel"] for w in sentence["tokens"]],
             }
             sample["predicate_indices"] = [
                 i for i, pos_tag in enumerate(pos_tags) if pos_tag in ["VERB"]

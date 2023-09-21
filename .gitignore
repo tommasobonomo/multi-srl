@@ -34,3 +34,6 @@ predictions/**/*.conll*
 # Python
 *.py[cod]
 **/__pycache__/
+
+# Trankit cache
+cache/*
