@@ -46,8 +46,11 @@ class SrlDataset(Dataset):
                     "sentence_id": i,
                     "words": SrlDataset.process_words(sentence["words"]),
                     "lemmas": sentence["lemmas"],
-                    "dep_heads": sentence["dep_heads"],
-                    "dep_labels": sentence["dep_labels"],
+                    "dep_heads": [int(head) for head in sentence["dep_heads"]],
+                    "dep_labels": [
+                        SrlDataset.clean_deprel(deprel)
+                        for deprel in sentence["dep_labels"]
+                    ],
                 }
 
                 if "annotations" in sentence:
@@ -75,8 +78,10 @@ class SrlDataset(Dataset):
                 "sentence_id": sentence_id,
                 "words": words,
                 "lemmas": lemmas,
-                "dep_heads": [w["head"] for w in sentence["tokens"]],
-                "dep_labels": [w["deprel"] for w in sentence["tokens"]],
+                "dep_heads": [int(w["head"]) for w in sentence["tokens"]],
+                "dep_labels": [
+                    SrlDataset.clean_deprel(w["deprel"]) for w in sentence["tokens"]
+                ],
             }
             sample["predicate_indices"] = [
                 i for i, pos_tag in enumerate(pos_tags) if pos_tag in ["VERB"]
@@ -120,3 +125,8 @@ class SrlDataset(Dataset):
             word = word.replace("\\/", "/")
 
         return word
+
+    @staticmethod
+    def clean_deprel(relation: str) -> str:
+        # keep only the first part of the relation
+        return relation.lower().split(":", 1)[0]
