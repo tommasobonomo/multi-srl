@@ -21,7 +21,7 @@ class SrlDataModule(pl.LightningDataModule):
         pred_path: str = None,
         language_model_name: str = "bert-base-cased",
         batch_size: int = 32,
-        num_workers: int = 0,
+        num_workers: int = 8,
         padding_label_id: int = -1,
         dependency_labels_vocab_path: Optional[str] = None,
     ):
@@ -40,17 +40,32 @@ class SrlDataModule(pl.LightningDataModule):
 
     def setup(self, stage: str = None):
         if stage in ("fit",):
-            self.train_data = SrlDataset(self.train_path)
-            self.dev_data = SrlDataset(self.dev_path)
+            self.train_data = SrlDataset(
+                path_to_data=self.train_path,
+                dependency_labels_vocab_path=self.dependency_labels_vocab_path,
+            )
+            self.dev_data = SrlDataset(
+                path_to_data=self.dev_path,
+                dependency_labels_vocab_path=self.dependency_labels_vocab_path,
+            )
 
         if stage in ("validate",):
-            self.dev_data = SrlDataset(self.dev_path)
+            self.dev_data = SrlDataset(
+                path_to_data=self.dev_path,
+                dependency_labels_vocab_path=self.dependency_labels_vocab_path,
+            )
 
         if stage in ("test",):
-            self.test_data = SrlDataset(self.test_path)
+            self.test_data = SrlDataset(
+                path_to_data=self.test_path,
+                dependency_labels_vocab_path=self.dependency_labels_vocab_path,
+            )
 
         if stage in ("predict",):
-            self.pred_data = SrlDataset(self.pred_path)
+            self.pred_data = SrlDataset(
+                path_to_data=self.pred_path,
+                dependency_labels_vocab_path=self.dependency_labels_vocab_path,
+            )
 
     def train_dataloader(self):
         return DataLoader(
@@ -182,6 +197,7 @@ class SrlDataModule(pl.LightningDataModule):
     def _load_dependency_labels_vocab(
         self, dependency_labels_vocab_path: Optional[str]
     ):
+        self.dependency_labels_vocab_path = dependency_labels_vocab_path
         if dependency_labels_vocab_path is not None:
             with open(dependency_labels_vocab_path, "r") as f:
                 dependency_labels = json.load(f)
@@ -269,7 +285,7 @@ class SrlDataModule(pl.LightningDataModule):
                     ],
                     dtype=torch.long,
                 ).unsqueeze(1)
-                edge_index = torch.tensor(
+                edge_list = torch.tensor(
                     sum(
                         (
                             [[i, head], [head, i]]
@@ -279,7 +295,11 @@ class SrlDataModule(pl.LightningDataModule):
                         [],
                     ),
                     dtype=torch.long,
-                ).T.contiguous()
+                )
+                if edge_list.ndim == 1:
+                    edge_list.resize_(0, 2)
+                edge_index = edge_list.T.contiguous()
+
                 sentence_dependency_trees.append(
                     Data(x=node_features, edge_index=edge_index)
                 )

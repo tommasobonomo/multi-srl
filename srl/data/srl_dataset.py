@@ -5,10 +5,23 @@ from torch.utils.data import Dataset
 
 
 class SrlDataset(Dataset):
-    def __init__(self, path_to_data: str = None, sentences: List = None):
+    def __init__(
+        self,
+        path_to_data: str = None,
+        sentences: List = None,
+        dependency_labels_vocab_path: str = None,
+    ):
         super().__init__()
+
+        if dependency_labels_vocab_path is not None:
+            dependency_type = (
+                "conll" if "conll" in dependency_labels_vocab_path else "universal"
+            )
+
         if path_to_data is not None:
-            self.sentences = SrlDataset.load_sentences_from_file(path_to_data)
+            self.sentences = SrlDataset.load_sentences_from_file(
+                path_to_data, dependency_type
+            )
         else:
             self.sentences = sentences
 
@@ -19,7 +32,7 @@ class SrlDataset(Dataset):
         return self.sentences[idx]
 
     @staticmethod
-    def load_sentences_from_file(path: str) -> List[dict]:
+    def load_sentences_from_file(path: str, dependency_type: str = None) -> List[dict]:
         sentences = []
 
         with open(path) as json_file:
@@ -46,12 +59,13 @@ class SrlDataset(Dataset):
                     "sentence_id": i,
                     "words": SrlDataset.process_words(sentence["words"]),
                     "lemmas": sentence["lemmas"],
-                    "dep_heads": [int(head) for head in sentence["dep_heads"]],
-                    "dep_labels": [
-                        SrlDataset.clean_deprel(deprel)
-                        for deprel in sentence["dep_labels"]
-                    ],
                 }
+                if "dep_heads" in sentence and "dep_labels" in sentence:
+                    sample["dep_heads"] = [int(head) for head in sentence["dep_heads"]]
+                    sample["dep_labels"] = [
+                        SrlDataset.clean_deprel(deprel, dependency_type)
+                        for deprel in sentence["dep_labels"]
+                    ]
 
                 if "annotations" in sentence:
                     sample["annotations"] = {
@@ -65,7 +79,7 @@ class SrlDataset(Dataset):
         return sentences
 
     @staticmethod
-    def load_sentences(data: list) -> List[dict]:
+    def load_sentences(data: list, dependency_type: str = None) -> List[dict]:
         sentences = []
 
         for i, sentence in enumerate(data):
@@ -80,7 +94,8 @@ class SrlDataset(Dataset):
                 "lemmas": lemmas,
                 "dep_heads": [int(w["head"]) for w in sentence["tokens"]],
                 "dep_labels": [
-                    SrlDataset.clean_deprel(w["deprel"]) for w in sentence["tokens"]
+                    SrlDataset.clean_deprel(w["deprel"], dependency_type)
+                    for w in sentence["tokens"]
                 ],
             }
             sample["predicate_indices"] = [
@@ -127,6 +142,38 @@ class SrlDataset(Dataset):
         return word
 
     @staticmethod
-    def clean_deprel(relation: str) -> str:
+    def clean_deprel(relation: str, dependency_type: str = None) -> str:
         # keep only the first part of the relation
-        return relation.lower().split(":", 1)[0]
+        relation = relation.lower()
+        if dependency_type == "conll":
+            if "-" in relation:
+                # It's a non-atomic relation
+                atomic_part, second_part = relation.split("-", 1)
+                if "prd" in relation:
+                    # It's a predicate, just return the predicate relation
+                    return "prd"
+                elif "oprd" in relation:
+                    # It's an OPRD, just return the OPRD relation
+                    return "oprd"
+                elif atomic_part == "gap":
+                    # Return the non-gap part of the relation
+                    return second_part
+                elif second_part == "gap":
+                    # Return the non-gap part of the relation
+                    return atomic_part
+                else:
+                    # It's a compound adverbial relation, return the first one
+                    return atomic_part
+            else:
+                # It's an atomic relation, just return it
+                return relation
+        elif dependency_type == "universal":
+            if ":" in relation:
+                # The relation contains a sub-type, we discard it and return the main type
+                return relation.split(":", 1)[0]
+            else:
+                # It's a normal type relation, just return it
+                return relation
+        else:
+            # TODO: This will probably break stuff in demo and predict but will have to be fixed later
+            return relation

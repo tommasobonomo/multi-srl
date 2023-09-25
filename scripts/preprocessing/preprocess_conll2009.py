@@ -9,6 +9,7 @@ def parse(
     keep_pos_tags=False,
     keep_lemmas=False,
     keep_dep_info=False,
+    use_original_dep_labels=False,
     add_predicate_pos=False,
     only_verbs=False,
     czech=False,
@@ -88,10 +89,16 @@ def parse(
             pos_tag = parts[4].strip()
             sentence_pos_tags.append(pos_tag)
 
-            dep_label = parts[11].strip()
+            if use_original_dep_labels:
+                dep_label = parts[10].strip()
+            else:
+                dep_label = parts[11].strip()
             sentence_dep_labels.append(dep_label)
 
-            dep_head = int(parts[9]) - 1
+            if use_original_dep_labels:
+                dep_head = int(parts[8]) - 1
+            else:
+                dep_head = int(parts[9]) - 1
             sentence_dep_heads.append(dep_head)
 
             predicate = parts[13].strip()
@@ -161,6 +168,11 @@ if __name__ == "__main__":
         help="Keep the dependency information when parsing the dataset.",
     )
     parser.add_argument(
+        "--use_original_dep_labels",
+        action="store_true",
+        help="Use the original dependency labels instead of the predicted ones.",
+    )
+    parser.add_argument(
         "--add_predicate_pos",
         action="store_true",
         help="Add a pos label to the predicate sense label (may be useful in English).",
@@ -187,6 +199,7 @@ if __name__ == "__main__":
         keep_pos_tags=args.keep_pos_tags,
         keep_lemmas=args.keep_lemmas,
         keep_dep_info=args.keep_dep_info,
+        use_original_dep_labels=args.use_original_dep_labels,
         add_predicate_pos=args.add_predicate_pos,
         only_verbs=args.only_verbs,
         czech=args.czech,
