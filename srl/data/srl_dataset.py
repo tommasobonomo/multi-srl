@@ -17,6 +17,8 @@ class SrlDataset(Dataset):
             dependency_type = (
                 "conll" if "conll" in dependency_labels_vocab_path else "universal"
             )
+        else:
+            dependency_type = None
 
         if path_to_data is not None:
             self.sentences = SrlDataset.load_sentences_from_file(
