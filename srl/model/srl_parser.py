@@ -166,7 +166,7 @@ class SrlParser(pl.LightningModule):
             dep_node_embeds = x["dependency_trees"].x
             dep_edge_index = x["dependency_trees"].edge_index
 
-        word_embeddings = self.word_encoder(lm_inputs, subword_indices)
+        word_embeddings = self.word_encoder(lm_inputs, subword_indices)[:, 1:-1, :]
 
         if self.use_dependency_trees:
             flattened_node_embeddings = self.dependecy_GNN(
@@ -190,9 +190,7 @@ class SrlParser(pl.LightningModule):
         else:
             combined_embeddings = word_embeddings
 
-        sequence_states = self.sequence_encoder(combined_embeddings, sentence_lengths)[
-            :, 1:-1, :
-        ]
+        sequence_states = self.sequence_encoder(combined_embeddings, sentence_lengths)
 
         predicate_encodings = self.predicate_encoder(sequence_states)
         predicate_scores = self.predicate_scorer(predicate_encodings)
