@@ -394,3 +394,16 @@ class SrlDataModule(pl.LightningDataModule):
                     subsequence, dtype=torch.long
                 )
         return padded_sequences
+
+
+if __name__ == "__main__":
+    dm = SrlDataModule(
+        vocabulary_path="data/preprocessed/conll2009/en_ud25/vocabulary.json",
+        train_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_train.json",
+        dev_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_dev.json",
+        dependency_labels_vocab_path="resources/universal_dependency_vocab.json",
+        num_workers=0,
+    )
+    dm.setup("validate")
+    for batch in dm.val_dataloader():
+        pass

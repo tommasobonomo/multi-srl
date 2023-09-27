@@ -28,7 +28,7 @@ model:
   gnn_hidden_dim: 100
 
   #   (type: int, default: 5)
-  num_gnn_layers: 5
+  num_gnn_layers: 2
 
   #   (type: int, default: 3)
   num_gnn_heads: 1

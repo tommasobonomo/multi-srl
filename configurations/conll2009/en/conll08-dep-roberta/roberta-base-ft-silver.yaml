@@ -10,7 +10,7 @@ trainer:
     class_path: pytorch_lightning.loggers.TensorBoardLogger
     init_args:
       save_dir: lightning_logs
-      name: conll09-en-dep-universal-roberta-base
+      name: conll09-en-dep-silver-conll08-roberta-base
 
 # <class 'srl.model.srl_parser.SrlParser'>
 model:
@@ -40,19 +40,19 @@ model:
 data:
 
   #   (type: str)
-  vocabulary_path: data/preprocessed/conll2009/en_ud25/vocabulary.json
+  vocabulary_path: data/preprocessed/conll2009/en_conll08/vocabulary.json
 
   #   (type: Union[str, null], default: null)
-  dependency_labels_vocab_path: resources/universal_dependency_vocab.json
+  dependency_labels_vocab_path: resources/conll_dependency_vocab.json
 
   #   (type: Union[str, null], default: null)
-  train_path: data/preprocessed/conll2009/en_ud25/CoNLL2009_train.json
+  train_path: data/preprocessed/conll2009/en_conll08/CoNLL2009_train.json
 
   #   (type: Union[str, null], default: null)
-  dev_path: data/preprocessed/conll2009/en_ud25/CoNLL2009_dev.json
+  dev_path: data/preprocessed/conll2009/en_conll08/CoNLL2009_dev.json
 
   #   (type: Union[str, null], default: null)
-  test_path: data/preprocessed/conll2009/en_ud25/CoNLL2009_test.json
+  test_path: data/preprocessed/conll2009/en_conll08/CoNLL2009_test.json
 
   #   (type: str, default: bert-base-cased)
   language_model_name: roberta-base
