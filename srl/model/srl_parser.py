@@ -87,7 +87,7 @@ class SrlParser(pl.LightningModule):
             not self.use_dependency_trees or number_dependency_labels > 0
         ), "Can't use dependency trees without dependency labels"
         if self.use_dependency_trees:
-            self.dependecy_GNN = DependencyGNN(
+            self.dependency_GNN = DependencyGNN(
                 num_dependency_labels=number_dependency_labels,
                 gnn_hidden_dim=gnn_hidden_dim,
                 num_gnn_layers=num_gnn_layers,
@@ -169,7 +169,7 @@ class SrlParser(pl.LightningModule):
         word_embeddings = self.word_encoder(lm_inputs, subword_indices)[:, 1:-1, :]
 
         if self.use_dependency_trees:
-            flattened_node_embeddings = self.dependecy_GNN(
+            flattened_node_embeddings = self.dependency_GNN(
                 dep_node_embeds, dep_edge_index
             )
             node_embeddings = torch.zeros(
@@ -255,7 +255,7 @@ class SrlParser(pl.LightningModule):
         base_parameters.extend(list(self.sequence_encoder.parameters()))
         base_parameters.extend(list(self.argument_sequence_encoder.parameters()))
         if self.use_dependency_trees:
-            base_parameters.extend(list(self.dependecy_GNN.parameters()))
+            base_parameters.extend(list(self.dependency_GNN.parameters()))
 
         lm_parameters = []
         lm_no_weight_decay_parameters = []
