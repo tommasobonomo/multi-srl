@@ -7,64 +7,67 @@ class DependencyGNN(nn.Module):
     def __init__(
         self,
         num_dependency_labels: int,
+        input_embedding_dim: int,
         gnn_hidden_dim: int = 100,
-        num_gnn_layers: int = 5,
+        edge_embedding_dim: int = 100,
+        num_gnn_layers: int = 1,
         num_gnn_heads: int = 3,
-        dropout_rate: float = 0.2,
+        dropout_rate: float = 0.0,
     ) -> None:
         super().__init__()
-        self.node_embedding = nn.Embedding(num_dependency_labels, gnn_hidden_dim)
+        self.edge_embedding = nn.Embedding(num_dependency_labels, edge_embedding_dim)
         self.gnn_stack = gnn.Sequential(
-            "x, edge_index",
+            "x, edge_index, edge_attr",
             [
-                (gnn.GCNConv(gnn_hidden_dim, gnn_hidden_dim), "x, edge_index -> x")
-                for _ in range(num_gnn_layers)
-            ]
+                (
+                    gnn.GATv2Conv(
+                        input_embedding_dim,
+                        gnn_hidden_dim,
+                        heads=num_gnn_heads,
+                        concat=True,
+                        edge_dim=edge_embedding_dim,
+                    ),
+                    "x, edge_index, edge_attr -> x",
+                ),
+                (
+                    nn.Dropout(
+                        dropout_rate,
+                    ),
+                    "x -> x",
+                ),
+                *sum(
+                    (
+                        [
+                            (
+                                gnn.GATv2Conv(
+                                    gnn_hidden_dim * num_gnn_heads,
+                                    gnn_hidden_dim,
+                                    heads=num_gnn_heads,
+                                    concat=True,
+                                    edge_dim=edge_embedding_dim,
+                                ),
+                                "x, edge_index, edge_attr -> x",
+                            ),
+                            (
+                                nn.Dropout(
+                                    dropout_rate,
+                                ),
+                                "x -> x",
+                            ),
+                        ]
+                        for _ in range(num_gnn_layers - 1)
+                    ),
+                    [],
+                ),
+            ],
         )
-        # gnn.Sequential(
-        #     "x, edge_index",
-        #     [
-        #         (
-        #             gnn.GATv2Conv(
-        #                 gnn_hidden_dim,
-        #                 gnn_hidden_dim,
-        #                 heads=num_gnn_heads,
-        #                 concat=True,
-        #             ),
-        #             "x, edge_index -> x",
-        #         ),
-        #         nn.ReLU(),
-        #         nn.Dropout(
-        #             dropout_rate,
-        #         ),
-        #         *sum(
-        #             (
-        #                 [
-        #                     (
-        #                         gnn.GATv2Conv(
-        #                             gnn_hidden_dim * num_gnn_heads,
-        #                             gnn_hidden_dim,
-        #                             heads=num_gnn_heads,
-        #                             concat=True,
-        #                         ),
-        #                         "x, edge_index -> x",
-        #                     ),
-        #                     (nn.ReLU(), "x -> x"),
-        #                     (
-        #                         nn.Dropout(
-        #                             dropout_rate,
-        #                         ),
-        #                         "x -> x",
-        #                     ),
-        #                 ]
-        #                 for _ in range(num_gnn_layers - 1)
-        #             ),
-        #             [],
-        #         ),
-        #     ],
-        # )
 
-    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> None:
-        x = self.node_embedding(x).squeeze()
-        gnn_out = self.gnn_stack(x, edge_index)
+    def forward(
+        self,
+        node_embeds: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attrs: torch.Tensor,
+    ) -> None:
+        edge_embeds = self.edge_embedding(edge_attrs.squeeze(-1))
+        gnn_out = self.gnn_stack(node_embeds, edge_index, edge_embeds)
         return gnn_out

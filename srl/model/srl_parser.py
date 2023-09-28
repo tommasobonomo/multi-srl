@@ -25,9 +25,10 @@ class SrlParser(pl.LightningModule):
         word_encoding_activation: str = "swish",
         word_encoding_dropout: float = 0.1,
         gnn_hidden_dim: int = 100,
-        num_gnn_layers: int = 5,
-        num_gnn_heads: int = 1,
-        gnn_dropout: float = 0.2,
+        edge_embedding_dim: int = 100,
+        num_gnn_layers: int = 1,
+        num_gnn_heads: int = 3,
+        gnn_dropout: float = 0.0,
         predicate_encoding_size: int = 128,
         predicate_encoding_activation: str = "swish",
         predicate_encoding_dropout: float = 0.1,
@@ -89,12 +90,14 @@ class SrlParser(pl.LightningModule):
         if self.use_dependency_trees:
             self.dependency_GNN = DependencyGNN(
                 num_dependency_labels=number_dependency_labels,
+                input_embedding_dim=word_embedding_size,
                 gnn_hidden_dim=gnn_hidden_dim,
+                edge_embedding_dim=edge_embedding_dim,
                 num_gnn_layers=num_gnn_layers,
                 num_gnn_heads=num_gnn_heads,
                 dropout_rate=gnn_dropout,
             )
-            lstm_input_size = gnn_hidden_dim * num_gnn_heads + word_embedding_size
+            lstm_input_size = gnn_hidden_dim * num_gnn_heads
         else:
             lstm_input_size = word_embedding_size
 
@@ -163,14 +166,21 @@ class SrlParser(pl.LightningModule):
         subword_indices = x["subword_indices"]
         sentence_lengths = x["sentence_lengths"]
         if self.use_dependency_trees:
-            dep_node_embeds = x["dependency_trees"].x
             dep_edge_index = x["dependency_trees"].edge_index
+            dep_edge_attr = x["dependency_trees"].edge_attr
 
         word_embeddings = self.word_encoder(lm_inputs, subword_indices)[:, 1:-1, :]
 
         if self.use_dependency_trees:
             flattened_node_embeddings = self.dependency_GNN(
-                dep_node_embeds, dep_edge_index
+                torch.cat(
+                    [
+                        word_embeddings[i, :seq_len, :]
+                        for i, seq_len in enumerate(sentence_lengths)
+                    ]
+                ),
+                dep_edge_index,
+                dep_edge_attr,
             )
             node_embeddings = torch.zeros(
                 word_embeddings.size(0),
@@ -186,7 +196,7 @@ class SrlParser(pl.LightningModule):
                     length_until_now:new_sent_end
                 ]
                 length_until_now = new_sent_end
-            combined_embeddings = torch.cat((word_embeddings, node_embeddings), dim=-1)
+            combined_embeddings = node_embeddings
         else:
             combined_embeddings = word_embeddings
 

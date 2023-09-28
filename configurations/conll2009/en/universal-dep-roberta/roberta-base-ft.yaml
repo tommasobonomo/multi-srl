@@ -5,6 +5,9 @@ trainer:
   # Default: ``None``. (type: Union[int, Dict[int, int], null], default: null)
   accumulate_grad_batches: 1
   
+  # Track gradient norms
+  track_grad_norm: 2
+
   # Logger setup
   logger:
     class_path: pytorch_lightning.loggers.TensorBoardLogger
@@ -27,14 +30,17 @@ model:
   #   (type: int, default: 100)
   gnn_hidden_dim: 100
 
+  #   (type: int, default: 100)
+  edge_embedding_dim: 100
+
   #   (type: int, default: 5)
-  num_gnn_layers: 2
+  num_gnn_layers: 1
 
   #   (type: int, default: 3)
-  num_gnn_heads: 1
+  num_gnn_heads: 3
 
   #   (type: float, default: 0.2)
-  gnn_dropout: 0.2
+  gnn_dropout: 0.0
 
 # <class 'srl.data.dependency_srl_data_module.DependencySrlDataModule'>
 data:

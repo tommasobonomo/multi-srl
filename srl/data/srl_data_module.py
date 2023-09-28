@@ -278,30 +278,30 @@ class SrlDataModule(pl.LightningDataModule):
         if self.num_dependency_labels > 0:
             sentence_dependency_trees = []
             for sent_dep_heads, sent_dep_labels in zip(dep_heads, dep_labels):
-                node_features = torch.tensor(
-                    [
-                        self.dependency_label2id[dep_label]
-                        for dep_label in sent_dep_labels
-                    ],
+                raw_edge_list = []
+                raw_edge_attribute = []
+                for i, head in enumerate(sent_dep_heads):
+                    if head != -1:
+                        raw_edge_list.append([i, head])
+                        raw_edge_list.append([head, i])
+                        raw_edge_attribute.append(sent_dep_labels[i])
+                        raw_edge_attribute.append(sent_dep_labels[i])
+                edge_list = torch.as_tensor(raw_edge_list, dtype=torch.long)
+                edge_attribute = torch.as_tensor(
+                    [self.dependency_label2id[label] for label in raw_edge_attribute],
                     dtype=torch.long,
                 ).unsqueeze(1)
-                edge_list = torch.tensor(
-                    sum(
-                        (
-                            [[i, head], [head, i]]
-                            for i, head in enumerate(sent_dep_heads)
-                            if head != -1
-                        ),
-                        [],
-                    ),
-                    dtype=torch.long,
-                )
                 if edge_list.ndim == 1:
                     edge_list.resize_(0, 2)
+                    edge_attribute.resize_(0, 1)
                 edge_index = edge_list.T.contiguous()
 
                 sentence_dependency_trees.append(
-                    Data(x=node_features, edge_index=edge_index)
+                    Data(
+                        edge_index=edge_index,
+                        edge_attr=edge_attribute,
+                        num_nodes=len(sent_dep_heads),
+                    )
                 )
             batched_inputs["dependency_trees"] = Batch.from_data_list(
                 sentence_dependency_trees
@@ -396,14 +396,14 @@ class SrlDataModule(pl.LightningDataModule):
         return padded_sequences
 
 
-if __name__ == "__main__":
-    dm = SrlDataModule(
-        vocabulary_path="data/preprocessed/conll2009/en_ud25/vocabulary.json",
-        train_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_train.json",
-        dev_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_dev.json",
-        dependency_labels_vocab_path="resources/universal_dependency_vocab.json",
-        num_workers=0,
-    )
-    dm.setup("validate")
-    for batch in dm.val_dataloader():
-        pass
+# if __name__ == "__main__":
+#     dm = SrlDataModule(
+#         vocabulary_path="data/preprocessed/conll2009/en_ud25/vocabulary.json",
+#         train_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_train.json",
+#         dev_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_dev.json",
+#         dependency_labels_vocab_path="resources/universal_dependency_vocab.json",
+#         num_workers=0,
+#     )
+#     dm.setup("validate")
+#     for batch in dm.val_dataloader():
+#         pass
