@@ -25,7 +25,7 @@ model:
   use_dependency_trees: true
 
   #   (type: int, default: 100)
-  gnn_hidden_dim: 100
+  gnn_hidden_dim: 512
 
   #   (type: int, default: 100)
   edge_embedding_dim: 100
