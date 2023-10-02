@@ -125,6 +125,7 @@ class SrlDataModule(pl.LightningDataModule):
             predicates = [0] * sentence_length
             sense_ids = []
             role_ids = []
+            modified_role_ids = []
             sense_candidates = []
 
             predicate_indices = sorted(list(sentence["annotations"].keys()))
@@ -155,9 +156,24 @@ class SrlDataModule(pl.LightningDataModule):
 
                 role_ids.append(_role_ids)
 
+                # Do the same for modified roles, i.e. roles where the heads are the head of the
+                # predicted dep-span by UD2.5, but only if "modified_roles" is present in the
+                # annotation.
+                if "modified_roles" in annotation:
+                    _modified_role_ids = [self.padding_label_id] * sentence_length
+                    for role_index, role in enumerate(annotation["modified_roles"]):
+                        _modified_role_ids[role_index] = (
+                            self.role2id[role]
+                            if role in self.role2id
+                            else self.unknown_role_id
+                        )
+
+                    modified_role_ids.append(_modified_role_ids)
+
             encoded_sentence["predicates"] = predicates
             encoded_sentence["sense_ids"] = sense_ids
             encoded_sentence["role_ids"] = role_ids
+            encoded_sentence["modified_role_ids"] = modified_role_ids
             encoded_sentence["sense_candidates"] = sense_candidates
 
         return encoded_sentence
@@ -227,8 +243,8 @@ class SrlDataModule(pl.LightningDataModule):
 
         for sentence in sentences:
             words.append(sentence["words"])
-            dep_heads.append(sentence["dep_heads"])
-            dep_labels.append(sentence["dep_labels"])
+            dep_heads.append(sentence.get("dep_heads", []))
+            dep_labels.append(sentence.get("dep_labels", []))
             sentence_length = len(sentence["words"])
             max_sentence_length = max(sentence_length, max_sentence_length)
 
@@ -255,10 +271,16 @@ class SrlDataModule(pl.LightningDataModule):
                 if "sense_ids" not in batched_targets:
                     batched_targets["sense_ids"] = []
                     batched_targets["role_ids"] = []
+                    if "modified_role_ids" in encoded_sentence:
+                        batched_targets["modified_role_ids"] = []
                 batched_targets["sense_ids"].extend(encoded_sentence["sense_ids"])
                 batched_targets["role_ids"].extend(
                     torch.as_tensor(encoded_sentence["role_ids"])
                 )
+                if "modified_role_ids" in encoded_sentence:
+                    batched_targets["modified_role_ids"].extend(
+                        torch.as_tensor(encoded_sentence["modified_role_ids"])
+                    )
 
         if "deberta" not in self.language_model_name:
             lm_inputs = self.tokenizer(
@@ -339,6 +361,15 @@ class SrlDataModule(pl.LightningDataModule):
                                 batched_targets["role_ids"][:current_predicate]
                                 + batched_targets["role_ids"][current_predicate + 1 :]
                             )
+                            if "modified_role_ids" in batched_targets:
+                                batched_targets["modified_role_ids"] = (
+                                    batched_targets["modified_role_ids"][
+                                        :current_predicate
+                                    ]
+                                    + batched_targets["modified_role_ids"][
+                                        current_predicate + 1 :
+                                    ]
+                                )
                         batched_inputs["sense_candidates"] = (
                             batched_inputs["sense_candidates"][:current_predicate]
                             + batched_inputs["sense_candidates"][
@@ -379,6 +410,13 @@ class SrlDataModule(pl.LightningDataModule):
                 padding_value=self.padding_label_id,
             )[:, :new_max_sentence_length]
 
+        if "modified_role_ids" in batched_targets:
+            batched_targets["modified_role_ids"] = pad_sequence(
+                batched_targets["modified_role_ids"],
+                batch_first=True,
+                padding_value=self.padding_label_id,
+            )[:, :new_max_sentence_length]
+
         return batched_inputs, batched_targets
 
     @staticmethod
@@ -394,16 +432,3 @@ class SrlDataModule(pl.LightningDataModule):
                     subsequence, dtype=torch.long
                 )
         return padded_sequences
-
-
-# if __name__ == "__main__":
-#     dm = SrlDataModule(
-#         vocabulary_path="data/preprocessed/conll2009/en_ud25/vocabulary.json",
-#         train_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_train.json",
-#         dev_path="data/preprocessed/conll2009/en_ud25/CoNLL2009_dev.json",
-#         dependency_labels_vocab_path="resources/universal_dependency_vocab.json",
-#         num_workers=0,
-#     )
-#     dm.setup("validate")
-#     for batch in dm.val_dataloader():
-#         pass
