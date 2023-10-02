@@ -8,6 +8,11 @@ data/preprocessed/conll2009/**/CoNLL2009*.json
 data/preprocessed/conll2012/**/CoNLL2012*.json
 data/preprocessed/ontonotes/**/ontonotes*.json
 
+data/preprocessed_trankit/conll2009/**/CoNLL2009*.json
+data/preprocessed_trankit/conll2009/**/vocabulary.json
+
+data/preprocessed_unified/conll2009/**/CoNLL2009*.json
+
 data/united/**/united*.json
 
 # Resources

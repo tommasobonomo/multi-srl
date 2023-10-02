@@ -6,3 +6,5 @@ torch==1.12
 trankit==1.1.1
 transformers==4.20.1
 wandb==0.15.8
+wasabi==1.1.2
+typed-argument-parser==1.8.1
