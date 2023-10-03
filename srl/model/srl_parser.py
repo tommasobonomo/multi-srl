@@ -160,6 +160,7 @@ class SrlParser(pl.LightningModule):
         self.predicate_scorer = nn.Linear(predicate_encoding_size, 2)
         self.sense_scorer = nn.Linear(sense_encoding_size, self.num_senses)
         self.role_scorer = nn.Linear(role_encoding_size, self.num_roles)
+        self.modified_role_scorer = nn.Linear(role_encoding_size, self.num_roles)
 
     def forward(self, x):
         lm_inputs = x["lm_inputs"]
@@ -244,11 +245,13 @@ class SrlParser(pl.LightningModule):
         )
         argument_encodings = self.argument_encoder(argument_encodings)
         role_scores = self.role_scorer(argument_encodings)
+        modified_scores = self.modified_role_scorer(argument_encodings)
 
         return {
             "predicates": predicate_scores,
             "senses": sense_scores,
             "roles": role_scores,
+            "modified_roles": modified_scores,
         }
 
     def configure_optimizers(self):
@@ -408,12 +411,27 @@ class SrlParser(pl.LightningModule):
                 self.num_roles,
                 ignore_index=self.hparams.padding_label_id,
             )
-
-            loss = (
-                predicate_identification_loss
-                + sense_classification_loss
-                + argument_classification_loss
-            )
+            if "modified_role_ids" in labels and len(labels["modified_role_ids"]) > 0:
+                modified_argument_classification_loss = (
+                    SrlParser._compute_classification_loss(
+                        scores["modified_roles"],
+                        labels["modified_role_ids"],
+                        self.num_roles,
+                        ignore_index=self.hparams.padding_label_id,
+                    )
+                )
+                loss = (
+                    predicate_identification_loss
+                    + sense_classification_loss
+                    + argument_classification_loss
+                    + modified_argument_classification_loss
+                )
+            else:
+                loss = (
+                    predicate_identification_loss
+                    + sense_classification_loss
+                    + argument_classification_loss
+                )
 
             if torch.isnan(loss) or not torch.isfinite(loss):
                 self.print("Loss:", loss)
@@ -430,6 +448,10 @@ class SrlParser(pl.LightningModule):
             step_output["predicate_identification_loss"] = predicate_identification_loss
             step_output["sense_classification_loss"] = sense_classification_loss
             step_output["argument_classification_loss"] = argument_classification_loss
+            if "modified_role_ids" in labels and len(labels["modified_role_ids"]) > 0:
+                step_output[
+                    "modified_argument_classification_loss"
+                ] = modified_argument_classification_loss
 
         if use_sense_candidates:
             sense_candidates = sample["sense_candidates"]
@@ -479,6 +501,19 @@ class SrlParser(pl.LightningModule):
             ).mean()
             metrics = SrlParser._compute_epoch_metrics(outputs)
 
+            if "modified_roles" in metrics:
+                extra_logs = {
+                    f"{stage}/modified_role_precision": metrics["modified_roles"][
+                        "precision"
+                    ],
+                    f"{stage}/modified_role_recall": metrics["modified_roles"][
+                        "recall"
+                    ],
+                    f"{stage}/modified_role_f1": metrics["modified_roles"]["f1"],
+                }
+            else:
+                extra_logs = {}
+
             logs = {
                 f"{stage}/loss": avg_loss,
                 f"{stage}/loss/predicate_identification": predicate_identification_loss,
@@ -491,6 +526,7 @@ class SrlParser(pl.LightningModule):
                 f"{stage}/role_precision": metrics["roles"]["precision"],
                 f"{stage}/role_recall": metrics["roles"]["recall"],
                 f"{stage}/role_f1": metrics["roles"]["f1"],
+                **extra_logs,
                 f"{stage}/overall_precision": metrics["overall"]["precision"],
                 f"{stage}/overall_recall": metrics["overall"]["recall"],
                 f"{stage}/overall_f1": metrics["overall"]["f1"],
@@ -548,6 +584,37 @@ class SrlParser(pl.LightningModule):
         ).sum()
         role_fn = (roles_p[roles_g >= 1] != roles_g[roles_g >= 1]).sum()
 
+        if "modified_role_ids" in labels and len(labels["modified_role_ids"]) > 0:
+            modified_roles_g = labels["modified_role_ids"]
+            modified_roles_p = torch.argmax(scores["modified_roles"], dim=-1)
+            modified_role_tp = (
+                modified_roles_p[
+                    torch.logical_and(modified_roles_g >= 0, modified_roles_p >= 1)
+                ]
+                == modified_roles_g[
+                    torch.logical_and(modified_roles_g >= 0, modified_roles_p >= 1)
+                ]
+            ).sum()
+            modified_role_fp = (
+                modified_roles_p[
+                    torch.logical_and(modified_roles_g >= 0, modified_roles_p >= 1)
+                ]
+                != modified_roles_g[
+                    torch.logical_and(modified_roles_g >= 0, modified_roles_p >= 1)
+                ]
+            ).sum()
+            modified_role_fn = (
+                modified_roles_p[modified_roles_g >= 1]
+                != modified_roles_g[modified_roles_g >= 1]
+            ).sum()
+            extra_metrics = {
+                "modified_role_tp": modified_role_tp,
+                "modified_role_fp": modified_role_fp,
+                "modified_role_fn": modified_role_fn,
+            }
+        else:
+            extra_metrics = {}
+
         return {
             "predicate_tp": predicate_tp,
             "predicate_fp": predicate_fp,
@@ -557,6 +624,7 @@ class SrlParser(pl.LightningModule):
             "role_tp": role_tp,
             "role_fp": role_fp,
             "role_fn": role_fn,
+            **extra_metrics,
         }
 
     def get_predicate_indices(self, scores):
@@ -729,6 +797,51 @@ class SrlParser(pl.LightningModule):
             else torch.as_tensor(0.0)
         )
 
+        if all("modified_role_tp" in o["metrics"] for o in outputs):
+            modified_role_tp = torch.stack(
+                [o["metrics"]["modified_role_tp"] for o in outputs]
+            ).sum()
+            modified_role_fp = torch.stack(
+                [o["metrics"]["modified_role_fp"] for o in outputs]
+            ).sum()
+            modified_role_fn = torch.stack(
+                [o["metrics"]["modified_role_fn"] for o in outputs]
+            ).sum()
+
+            modified_role_precision = (
+                torch.true_divide(
+                    modified_role_tp, (modified_role_tp + modified_role_fp)
+                )
+                if modified_role_tp + modified_role_fp > 0
+                else torch.as_tensor(0)
+            )
+            modified_role_recall = (
+                torch.true_divide(
+                    modified_role_tp, (modified_role_tp + modified_role_fn)
+                )
+                if modified_role_tp + modified_role_fn > 0
+                else torch.as_tensor(0)
+            )
+            modified_role_f1 = (
+                2
+                * torch.true_divide(
+                    modified_role_precision * modified_role_recall,
+                    modified_role_precision + modified_role_recall,
+                )
+                if modified_role_precision + modified_role_recall > 0
+                else torch.as_tensor(0.0)
+            )
+            modified_roles = {
+                "_tp": modified_role_tp,
+                "_fp": modified_role_fp,
+                "_fn": modified_role_fn,
+                "precision": modified_role_precision,
+                "recall": modified_role_recall,
+                "f1": modified_role_f1,
+            }
+        else:
+            modified_roles = {}
+
         overall_tp = role_tp + sense_correct
         overall_fp = role_fp + (sense_total - sense_correct)
         overall_fn = role_fn + (sense_total - sense_correct)
@@ -751,7 +864,7 @@ class SrlParser(pl.LightningModule):
             else torch.as_tensor(0.0)
         )
 
-        return {
+        output = {
             "predicates": {
                 "_tp": predicate_tp,
                 "_fp": predicate_fp,
@@ -782,3 +895,8 @@ class SrlParser(pl.LightningModule):
                 "f1": overall_f1,
             },
         }
+
+        if modified_roles:
+            output["modified_roles"] = modified_roles
+
+        return output

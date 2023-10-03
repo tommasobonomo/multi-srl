@@ -410,7 +410,10 @@ class SrlDataModule(pl.LightningDataModule):
                 padding_value=self.padding_label_id,
             )[:, :new_max_sentence_length]
 
-        if "modified_role_ids" in batched_targets:
+        if (
+            "modified_role_ids" in batched_targets
+            and len(batched_targets["modified_role_ids"]) > 0
+        ):
             batched_targets["modified_role_ids"] = pad_sequence(
                 batched_targets["modified_role_ids"],
                 batch_first=True,
