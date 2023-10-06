@@ -129,7 +129,7 @@ def srl(nlp: trankit.Pipeline, model: SrlParser, datamodule: SrlDataModule) -> l
     def _srl(text: str, index: int) -> list:
         predictions = {}
 
-        doc = nlp(text, is_sent=True)
+        doc = nlp(text)
         datamodule.pred_data = SrlDataset.load_sentences(doc["sentences"])
 
         for batch_idx, batch in enumerate(datamodule.predict_dataloader()):

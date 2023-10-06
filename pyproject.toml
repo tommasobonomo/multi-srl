@@ -1,2 +1,5 @@
 [tool.ruff]
 line_length = 120
+
+[tool.mypy]
+line_length = 120
