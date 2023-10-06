@@ -26,13 +26,12 @@ class DependencyGNN(nn.Module):
                         heads=num_gnn_heads,
                         concat=True,
                         edge_dim=edge_embedding_dim,
+                        dropout=dropout_rate,
                     ),
                     "x, edge_index, edge_attr -> x",
                 ),
                 (
-                    nn.Dropout(
-                        dropout_rate,
-                    ),
+                    nn.ReLU(),
                     "x -> x",
                 ),
                 *sum(
@@ -45,13 +44,12 @@ class DependencyGNN(nn.Module):
                                     heads=num_gnn_heads,
                                     concat=True,
                                     edge_dim=edge_embedding_dim,
+                                    dropout=dropout_rate,
                                 ),
                                 "x, edge_index, edge_attr -> x",
                             ),
                             (
-                                nn.Dropout(
-                                    dropout_rate,
-                                ),
+                                nn.ReLU(),
                                 "x -> x",
                             ),
                         ]
