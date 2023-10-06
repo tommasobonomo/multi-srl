@@ -25,6 +25,9 @@ model:
   #   (type: bool, default: False)
   use_sense_candidates: true
 
+  #   (type: bool, default: False)
+  use_unified_roles: true
+
 # <class 'srl.data.dependency_srl_data_module.DependencySrlDataModule'>
 data:
 

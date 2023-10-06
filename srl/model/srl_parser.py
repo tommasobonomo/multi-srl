@@ -60,6 +60,7 @@ class SrlParser(pl.LightningModule):
         use_viterbi_decoding: bool = False,
         use_sense_candidates: bool = False,
         use_dependency_trees: bool = False,
+        use_unified_roles: bool = False,
         predictions_path: str = None,
     ):
         super().__init__()
@@ -70,6 +71,7 @@ class SrlParser(pl.LightningModule):
         self.use_viterbi_decoding = use_viterbi_decoding
         self.use_sense_candidates = use_sense_candidates
         self.use_dependency_trees = use_dependency_trees
+        self.use_unified_roles = use_unified_roles
         self.predictions_path = predictions_path
 
         self.word_encoder = WordEncoder(
@@ -160,7 +162,8 @@ class SrlParser(pl.LightningModule):
         self.predicate_scorer = nn.Linear(predicate_encoding_size, 2)
         self.sense_scorer = nn.Linear(sense_encoding_size, self.num_senses)
         self.role_scorer = nn.Linear(role_encoding_size, self.num_roles)
-        self.modified_role_scorer = nn.Linear(role_encoding_size, self.num_roles)
+        if self.use_unified_roles:
+            self.modified_role_scorer = nn.Linear(role_encoding_size, self.num_roles)
 
     def forward(self, x):
         lm_inputs = x["lm_inputs"]
@@ -245,13 +248,18 @@ class SrlParser(pl.LightningModule):
         )
         argument_encodings = self.argument_encoder(argument_encodings)
         role_scores = self.role_scorer(argument_encodings)
-        modified_scores = self.modified_role_scorer(argument_encodings)
+        if self.use_unified_roles:
+            modified_scores = {
+                "modified_roles": self.modified_role_scorer(argument_encodings)
+            }
+        else:
+            modified_scores = {}
 
         return {
             "predicates": predicate_scores,
             "senses": sense_scores,
             "roles": role_scores,
-            "modified_roles": modified_scores,
+            **modified_scores,
         }
 
     def configure_optimizers(self):
@@ -411,7 +419,11 @@ class SrlParser(pl.LightningModule):
                 self.num_roles,
                 ignore_index=self.hparams.padding_label_id,
             )
-            if "modified_role_ids" in labels and len(labels["modified_role_ids"]) > 0:
+            if (
+                self.use_unified_roles
+                and "modified_role_ids" in labels
+                and len(labels["modified_role_ids"]) > 0
+            ):
                 modified_argument_classification_loss = (
                     SrlParser._compute_classification_loss(
                         scores["modified_roles"],
@@ -448,7 +460,11 @@ class SrlParser(pl.LightningModule):
             step_output["predicate_identification_loss"] = predicate_identification_loss
             step_output["sense_classification_loss"] = sense_classification_loss
             step_output["argument_classification_loss"] = argument_classification_loss
-            if "modified_role_ids" in labels and len(labels["modified_role_ids"]) > 0:
+            if (
+                self.use_unified_roles
+                and "modified_role_ids" in labels
+                and len(labels["modified_role_ids"]) > 0
+            ):
                 step_output[
                     "modified_argument_classification_loss"
                 ] = modified_argument_classification_loss
@@ -584,7 +600,11 @@ class SrlParser(pl.LightningModule):
         ).sum()
         role_fn = (roles_p[roles_g >= 1] != roles_g[roles_g >= 1]).sum()
 
-        if "modified_role_ids" in labels and len(labels["modified_role_ids"]) > 0:
+        if (
+            self.use_unified_roles
+            and "modified_role_ids" in labels
+            and len(labels["modified_role_ids"]) > 0
+        ):
             modified_roles_g = labels["modified_role_ids"]
             modified_roles_p = torch.argmax(scores["modified_roles"], dim=-1)
             modified_role_tp = (
