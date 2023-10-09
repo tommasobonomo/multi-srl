@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script preprocesses the CoNLL-2009 dataset using Universal Dependencies.
+echo "This script preprocesses the CoNLL-2009 dataset using Universal Dependencies."
 
 for lang in ca cs de en es zh
 do
