@@ -25,19 +25,19 @@ model:
   use_dependency_trees: true
 
   #   (type: int, default: 100)
-  gnn_hidden_dim: 512
+  gnn_hidden_dim: 800
 
   #   (type: int, default: 100)
-  edge_embedding_dim: 100
+  edge_embedding_dim: 60
 
   #   (type: int, default: 5)
   num_gnn_layers: 1
 
   #   (type: int, default: 3)
-  num_gnn_heads: 3
+  num_gnn_heads: 4
 
   #   (type: float, default: 0.2)
-  gnn_dropout: 0.0
+  gnn_dropout: 0.25
 
 # <class 'srl.data.dependency_srl_data_module.DependencySrlDataModule'>
 data:

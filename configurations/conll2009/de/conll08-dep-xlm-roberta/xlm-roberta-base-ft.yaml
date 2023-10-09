@@ -10,7 +10,7 @@ trainer:
     class_path: pytorch_lightning.loggers.TensorBoardLogger
     init_args:
       save_dir: lightning_logs
-      name: conll09-es-xlm-roberta-base
+      name: conll09-de-dep-conll08-xlm-roberta-base
 
 
 # <class 'srl.model.srl_parser.SrlParser'>
@@ -22,23 +22,41 @@ model:
   #   (type: bool, default: False)
   use_sense_candidates: true
 
+  #   (type: bool, default: False)
+  use_dependency_trees: true
+
+  #   (type: int, default: 100)
+  gnn_hidden_dim: 800
+
+  #   (type: int, default: 100)
+  edge_embedding_dim: 60
+
+  #   (type: int, default: 5)
+  num_gnn_layers: 1
+
+  #   (type: int, default: 3)
+  num_gnn_heads: 4
+
+  #   (type: float, default: 0.2)
+  gnn_dropout: 0.25
+
 # <class 'srl.data.dependency_srl_data_module.DependencySrlDataModule'>
 data:
 
-  #   (type: Union[str, null], default: null)
-  dependency_labels_vocab_path: null
-
   #   (type: str)
-  vocabulary_path: data/preprocessed/conll2009/es/vocabulary.json
+  vocabulary_path: data/preprocessed/conll2009/de/vocabulary.json
 
   #   (type: Union[str, null], default: null)
-  train_path: data/preprocessed/conll2009/es/CoNLL2009_train.json
+  dependency_labels_vocab_path: resources/conll_dependency_vocab.json
 
   #   (type: Union[str, null], default: null)
-  dev_path: data/preprocessed/conll2009/es/CoNLL2009_dev.json
+  train_path: data/preprocessed/conll2009/de/CoNLL2009_train.json
 
   #   (type: Union[str, null], default: null)
-  test_path: data/preprocessed/conll2009/es/CoNLL2009_test.json
+  dev_path: data/preprocessed/conll2009/de/CoNLL2009_dev.json
+
+  #   (type: Union[str, null], default: null)
+  test_path: data/preprocessed/conll2009/de/CoNLL2009_test.json
 
   #   (type: str, default: bert-base-cased)
   language_model_name: xlm-roberta-base

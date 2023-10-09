@@ -10,7 +10,7 @@ trainer:
     class_path: pytorch_lightning.loggers.TensorBoardLogger
     init_args:
       save_dir: lightning_logs
-      name: conll09-es-xlm-roberta-base
+      name: conll09-en-xlm-roberta-large
 
 
 # <class 'srl.model.srl_parser.SrlParser'>
@@ -29,19 +29,19 @@ data:
   dependency_labels_vocab_path: null
 
   #   (type: str)
-  vocabulary_path: data/preprocessed/conll2009/es/vocabulary.json
+  vocabulary_path: data/preprocessed/conll2009/en/vocabulary.json
 
   #   (type: Union[str, null], default: null)
-  train_path: data/preprocessed/conll2009/es/CoNLL2009_train.json
+  train_path: data/preprocessed/conll2009/en/CoNLL2009_train.json
 
   #   (type: Union[str, null], default: null)
-  dev_path: data/preprocessed/conll2009/es/CoNLL2009_dev.json
+  dev_path: data/preprocessed/conll2009/en/CoNLL2009_dev.json
 
   #   (type: Union[str, null], default: null)
-  test_path: data/preprocessed/conll2009/es/CoNLL2009_test.json
+  test_path: data/preprocessed/conll2009/en/CoNLL2009_test.json
 
   #   (type: str, default: bert-base-cased)
-  language_model_name: xlm-roberta-base
+  language_model_name: xlm-roberta-large
 
   #   (type: int, default: 32)
   batch_size: 32

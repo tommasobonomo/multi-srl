@@ -3,25 +3,51 @@ trainer:
 
   # Accumulates grads every k batches or as set up in the dict.
   # Default: ``None``. (type: Union[int, Dict[int, int], null], default: null)
-  accumulate_grad_batches: 2
+  accumulate_grad_batches: 1
+
+  # Logger setup
+  logger:
+    class_path: pytorch_lightning.loggers.TensorBoardLogger
+    init_args:
+      save_dir: lightning_logs
+      name: conll09-ca-dep-conll08-xlm-roberta-base
+
 
 # <class 'srl.model.srl_parser.SrlParser'>
 model:
-
-  #   (type: str)
-  vocabulary_path: data/preprocessed/conll2009/ca/vocabulary.json
 
   #   (type: bool, default: False)
   language_model_fine_tuning: true
 
   #   (type: bool, default: False)
-  use_sense_candidates: false
+  use_sense_candidates: true
+
+  #   (type: bool, default: False)
+  use_dependency_trees: true
+
+  #   (type: int, default: 100)
+  gnn_hidden_dim: 800
+
+  #   (type: int, default: 100)
+  edge_embedding_dim: 60
+
+  #   (type: int, default: 5)
+  num_gnn_layers: 1
+
+  #   (type: int, default: 3)
+  num_gnn_heads: 4
+
+  #   (type: float, default: 0.2)
+  gnn_dropout: 0.25
 
 # <class 'srl.data.dependency_srl_data_module.DependencySrlDataModule'>
 data:
 
   #   (type: str)
   vocabulary_path: data/preprocessed/conll2009/ca/vocabulary.json
+
+  #   (type: Union[str, null], default: null)
+  dependency_labels_vocab_path: resources/conll_dependency_vocab.json
 
   #   (type: Union[str, null], default: null)
   train_path: data/preprocessed/conll2009/ca/CoNLL2009_train.json
@@ -33,6 +59,7 @@ data:
   test_path: data/preprocessed/conll2009/ca/CoNLL2009_test.json
 
   #   (type: str, default: bert-base-cased)
-  language_model_name: bert-base-multilingual-cased
+  language_model_name: xlm-roberta-base
+
   #   (type: int, default: 32)
-  batch_size: 16
+  batch_size: 32
