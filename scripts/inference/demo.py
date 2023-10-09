@@ -5,9 +5,9 @@ import gradio as gr
 import trankit
 import transformers
 
-from srl.data.srl_data_module import SrlDataModule
-from srl.data.srl_dataset import SrlDataset
-from srl.model.srl_parser import SrlParser
+from src.srl.data.srl_data_module import SrlDataModule
+from src.srl.data.srl_dataset import SrlDataset
+from src.srl.model.srl_parser import SrlParser
 
 
 def load_model(checkpoint_path: str) -> SrlParser:

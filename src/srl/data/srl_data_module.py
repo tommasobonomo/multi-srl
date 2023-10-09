@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torch_geometric.data import Batch, Data
 from transformers import AutoTokenizer
 
-from srl.data.srl_dataset import SrlDataset
+from src.srl.data.srl_dataset import SrlDataset
 
 
 class SrlDataModule(pl.LightningDataModule):

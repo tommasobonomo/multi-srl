@@ -1,7 +1,7 @@
 from pytorch_lightning.cli import LightningCLI
 
-from srl.data.srl_data_module import SrlDataModule
-from srl.model.srl_parser import SrlParser
+from src.srl.data.srl_data_module import SrlDataModule
+from src.srl.model.srl_parser import SrlParser
 
 
 class CustomCLI(LightningCLI):

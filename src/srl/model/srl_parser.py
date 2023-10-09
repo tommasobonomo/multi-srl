@@ -7,11 +7,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from srl.model.layers.dependency_gnn import DependencyGNN
-from srl.model.layers.sequence_encoder import SequenceEncoder
-from srl.model.layers.state_encoder import StateEncoder
-from srl.model.layers.word_encoder import WordEncoder
-from srl.utils.decoding import viterbi_decode
+from src.srl.model.layers.dependency_gnn import DependencyGNN
+from src.srl.model.layers.sequence_encoder import SequenceEncoder
+from src.srl.model.layers.state_encoder import StateEncoder
+from src.srl.model.layers.word_encoder import WordEncoder
+from src.srl.utils.decoding import viterbi_decode
 
 
 class SrlParser(pl.LightningModule):

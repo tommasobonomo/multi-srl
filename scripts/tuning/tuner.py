@@ -10,8 +10,8 @@ from pytorch_lightning import Trainer
 from tap import Tap
 from wasabi import msg
 
-from srl.data.srl_data_module import SrlDataModule
-from srl.model.srl_parser import SrlParser
+from src.srl.data.srl_data_module import SrlDataModule
+from src.srl.model.srl_parser import SrlParser
 
 
 class ScriptArgs(Tap):
