@@ -5,8 +5,7 @@ data/original/ontonotes/**/*.txt
 data/original/united/**/*.conllu
 
 data/preprocessed/conll2009/**/CoNLL2009*.json
-data/preprocessed/conll2012/**/CoNLL2012*.json
-data/preprocessed/ontonotes/**/ontonotes*.json
+data/preprocessed/conll2009/**/vocabulary.json
 
 data/preprocessed_trankit/conll2009/**/CoNLL2009*.json
 data/preprocessed_trankit/conll2009/**/vocabulary.json
@@ -14,6 +13,8 @@ data/preprocessed_trankit/conll2009/**/vocabulary.json
 data/preprocessed_unified/conll2009/**/CoNLL2009*.json
 
 data/united/**/united*.json
+data/trankit/conll2009/**/*.txt
+
 
 # Resources
 data/resources/*
