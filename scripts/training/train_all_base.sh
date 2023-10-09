@@ -22,3 +22,4 @@ do
     python scripts/training/trainer.py fit \
         --config configurations/conll2009/base.yaml \
         --config configurations/conll2009/${lang}/xlm-roberta/xlm-roberta-base-ft.yaml
+done
