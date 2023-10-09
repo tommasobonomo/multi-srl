@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PYTHONPATH=${PWD}
+
 echo "Training all base models for all languages on CoNLL 2009"
 echo "Total of 24 models will be trained"
 
