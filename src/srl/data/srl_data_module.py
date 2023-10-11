@@ -310,7 +310,12 @@ class SrlDataModule(pl.LightningDataModule):
                         raw_edge_attribute.append(sent_dep_labels[i])
                 edge_list = torch.as_tensor(raw_edge_list, dtype=torch.long)
                 edge_attribute = torch.as_tensor(
-                    [self.dependency_label2id[label] for label in raw_edge_attribute],
+                    [
+                        self.dependency_label2id.get(
+                            label, self.dependency_label2id["unk"]
+                        )
+                        for label in raw_edge_attribute
+                    ],
                     dtype=torch.long,
                 ).unsqueeze(1)
                 if edge_list.ndim == 1:
