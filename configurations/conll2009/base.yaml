@@ -1,6 +1,6 @@
 
 # Set to an int to run seed_everything with this value before classes instantiation (type: Union[int, null], default: 313)
-seed_everything: 313
+seed_everything: 903 # 313
 
 # Customize every aspect of training via flags
 trainer:
@@ -29,11 +29,11 @@ trainer:
         save_top_k: 1
         filename: "epoch={epoch:02d}-f1={val/overall_f1:.4f}"
         auto_insert_metric_name: false
-    - class_path: pytorch_lightning.callbacks.EarlyStopping
-      init_args:
-        monitor: val/overall_f1
-        mode: max
-        patience: 10
+    # - class_path: pytorch_lightning.callbacks.EarlyStopping
+    #   init_args:
+    #     monitor: val/overall_f1
+    #     mode: max
+    #     patience: 10
     - class_path: pytorch_lightning.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
@@ -66,7 +66,7 @@ trainer:
   # Stop training after this number of steps. Disabled by default (-1). If ``max_steps = -1``
   # and ``max_epochs = None``, will default to ``max_epochs = 1000``. To enable infinite training, set
   # ``max_epochs`` to ``-1``. (type: int, default: -1)
-  max_steps: 500000
+  max_steps: 40000
 
   # How often to log within steps.
   # Default: ``50``. (type: int, default: 50)
