@@ -46,7 +46,7 @@ data:
   vocabulary_path: data/preprocessed/conll2009/en/vocabulary.json
 
   #   (type: Union[str, null], default: null)
-  dependency_labels_vocab_path: resources/conll_dependency_vocab.json
+  dependency_labels_vocab_path: resources/conll_en_dependency_vocab.json
 
   #   (type: Union[str, null], default: null)
   train_path: data/preprocessed/conll2009/en/CoNLL2009_train.json
