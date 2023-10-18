@@ -13,15 +13,24 @@ do
         --config configurations/conll2009/base.yaml \
         --config configurations/conll2009/${lang}/conll08-dep-xlm-roberta/xlm-roberta-base-ft.yaml
 
+    rm -rf /dev/shm/*
+
     python scripts/training/trainer.py fit \
         --config configurations/conll2009/base.yaml \
         --config configurations/conll2009/${lang}/conll08-dep-xlm-roberta/xlm-roberta-base-ft-silver.yaml
+
+    rm -rf /dev/shm/*
 
     python scripts/training/trainer.py fit \
         --config configurations/conll2009/base.yaml \
         --config configurations/conll2009/${lang}/universal-dep-xlm-roberta/xlm-roberta-base-ft.yaml
 
+    rm -rf /dev/shm/*
+
     python scripts/training/trainer.py fit \
         --config configurations/conll2009/base.yaml \
         --config configurations/conll2009/${lang}/xlm-roberta/xlm-roberta-base-ft.yaml
+
+    rm -rf /dev/shm/*
+
 done
