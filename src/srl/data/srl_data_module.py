@@ -352,37 +352,42 @@ class SrlDataModule(pl.LightningDataModule):
 
             batched_inputs["subword_indices"].append(subword_indices)
 
-            for predicate_index, predicate in enumerate(
-                batched_targets["predicates"][sentence_index]
-            ):
-                if predicate == 1:
-                    if predicate_index >= true_sentence_length:
-                        if "sense_ids" in batched_targets:
-                            batched_targets["sense_ids"] = (
-                                batched_targets["sense_ids"][:current_predicate]
-                                + batched_targets["sense_ids"][current_predicate + 1 :]
-                            )
-                            batched_targets["role_ids"] = (
-                                batched_targets["role_ids"][:current_predicate]
-                                + batched_targets["role_ids"][current_predicate + 1 :]
-                            )
-                            if "modified_role_ids" in batched_targets:
-                                batched_targets["modified_role_ids"] = (
-                                    batched_targets["modified_role_ids"][
-                                        :current_predicate
-                                    ]
-                                    + batched_targets["modified_role_ids"][
+            if "predicates" in batched_targets:
+                for predicate_index, predicate in enumerate(
+                    batched_targets["predicates"][sentence_index]
+                ):
+                    if predicate == 1:
+                        if predicate_index >= true_sentence_length:
+                            if "sense_ids" in batched_targets:
+                                batched_targets["sense_ids"] = (
+                                    batched_targets["sense_ids"][:current_predicate]
+                                    + batched_targets["sense_ids"][
                                         current_predicate + 1 :
                                     ]
                                 )
-                        batched_inputs["sense_candidates"] = (
-                            batched_inputs["sense_candidates"][:current_predicate]
-                            + batched_inputs["sense_candidates"][
-                                current_predicate + 1 :
-                            ]
-                        )
-                    else:
-                        current_predicate += 1
+                                batched_targets["role_ids"] = (
+                                    batched_targets["role_ids"][:current_predicate]
+                                    + batched_targets["role_ids"][
+                                        current_predicate + 1 :
+                                    ]
+                                )
+                                if "modified_role_ids" in batched_targets:
+                                    batched_targets["modified_role_ids"] = (
+                                        batched_targets["modified_role_ids"][
+                                            :current_predicate
+                                        ]
+                                        + batched_targets["modified_role_ids"][
+                                            current_predicate + 1 :
+                                        ]
+                                    )
+                            batched_inputs["sense_candidates"] = (
+                                batched_inputs["sense_candidates"][:current_predicate]
+                                + batched_inputs["sense_candidates"][
+                                    current_predicate + 1 :
+                                ]
+                            )
+                        else:
+                            current_predicate += 1
 
         new_max_sentence_length = max(batched_inputs["sentence_lengths"]) + 1
         batched_inputs["subword_indices"] = torch.as_tensor(

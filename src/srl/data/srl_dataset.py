@@ -100,9 +100,6 @@ class SrlDataset(Dataset):
                     for w in sentence["tokens"]
                 ],
             }
-            sample["predicate_indices"] = [
-                i for i, pos_tag in enumerate(pos_tags) if pos_tag in ["VERB"]
-            ]
             sentences.append(sample)
 
         return sentences

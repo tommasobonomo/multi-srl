@@ -365,12 +365,16 @@ class SrlParser(pl.LightningModule):
             use_sense_candidates=self.use_sense_candidates,
         )
 
-    def predict_step(self, batch, batch_index, write_to_file=True):
+    def predict_step(
+        self, batch, batch_index, write_to_file=True, use_modified=False, **kwargs
+    ):
         step_output = self._shared_step(
             batch,
             compute_loss=False,
             compute_predictions=True,
             use_sense_candidates=self.use_sense_candidates,
+            use_modified=use_modified,
+            **kwargs,
         )
 
         predictions = step_output["predictions"]
@@ -384,6 +388,7 @@ class SrlParser(pl.LightningModule):
                     }
                     output_str = json.dumps(output, sort_keys=True)
                     f.write(output_str + "\n")
+            return predictions
         else:
             return predictions
 
@@ -395,10 +400,13 @@ class SrlParser(pl.LightningModule):
         compute_predictions=False,
         use_preidentified_predicates=True,
         use_sense_candidates=False,
+        use_modified=False,
     ):
         step_output = {}
         sample, labels = batch
         scores = self(sample)
+        if use_modified:
+            scores["roles"] = scores.pop("modified_roles")
 
         if compute_loss:
             predicate_identification_loss = SrlParser._compute_classification_loss(
@@ -649,7 +657,7 @@ class SrlParser(pl.LightningModule):
 
     def get_predicate_indices(self, scores):
         predicate_indices = torch.argmax(scores["predicates"], dim=-1)
-        return predicate_indices
+        return predicate_indices.nonzero().tolist()
 
     def get_senses_and_roles(
         self, predicate_indices, scores, sentence_ids, sentence_lengths
