@@ -15,6 +15,11 @@ data/preprocessed_unified/conll2009/**/CoNLL2009*.json
 data/united/**/united*.json
 data/trankit/conll2009/**/*.txt
 
+data/amr_data/**/*
+
+final_models/**/*
+unified_checkpoints/**/*
+
 
 # Resources
 data/resources/*
