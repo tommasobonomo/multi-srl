@@ -1,6 +1,7 @@
 from typing import List, Optional, Set, Tuple
 
 from anytree import LevelOrderIter, Node
+from wasabi import msg
 
 from src.token_types import Sentence, TokenFeatures
 
@@ -162,6 +163,21 @@ def token_roles(
     ]
 
 
+def get_root_depth(token: TokenFeatures, is_semantic: bool, sentence: Sentence) -> int:
+    if is_semantic:
+        dep = token.sem_dep
+    else:
+        dep = token.synt_dep
+
+    if len(dep.child_indices) == 0:
+        return 0
+    else:
+        return 1 + max(
+            get_root_depth(sentence[idx], is_semantic, sentence)
+            for idx in dep.child_indices
+        )
+
+
 def build_nodes(
     child_indices: List[int], sentence: Sentence, is_semantic: bool
 ) -> List[Node]:
@@ -187,10 +203,30 @@ def build_nodes(
 def parse_sentence_to_dep_tree(sentence: Sentence, is_semantic: bool = False) -> Node:
     """Find root token and build tree from it"""
     if is_semantic:
-        root_token = next(token for token in sentence if token.sem_dep.head_idx == -1)
+        root_tokens = [token for token in sentence if token.sem_dep.head_idx == -1]
+    else:
+        root_tokens = [token for token in sentence if token.synt_dep.head_idx == -1]
+
+    if len(root_tokens) > 1:
+        # Find root token with the highest depth
+        root_token = max(
+            root_tokens, key=lambda token: get_root_depth(token, is_semantic, sentence)
+        )
+        # Set other roots as children of root token
+        for other_root_token in root_tokens:
+            if other_root_token != root_token:
+                if is_semantic:
+                    other_root_token.sem_dep.head_idx = root_token.idx
+                    root_token.sem_dep.child_indices.append(other_root_token.idx)
+                else:
+                    other_root_token.synt_dep.head_idx = root_token.idx
+                    root_token.synt_dep.child_indices.append(other_root_token.idx)
+    else:
+        root_token = next(iter(root_tokens))
+
+    if is_semantic:
         dep_relation = root_token.sem_dep
     else:
-        root_token = next(token for token in sentence if token.synt_dep.head_idx == -1)
         dep_relation = root_token.synt_dep
 
     root_node = Node(
