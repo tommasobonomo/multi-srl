@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List, Optional, Set, Tuple
 
 from anytree import LevelOrderIter, Node
@@ -52,7 +53,8 @@ def old_english_to_universal_semantic_head(
 
 
 def match_span(
-    span_indices: Set[int],
+    role_idx: int,
+    role_span: Set[int],
     target_tree_root: Node,
     tokens: Sentence,
 ) -> int:
@@ -63,22 +65,34 @@ def match_span(
     and the subtree indices.
     """
     smallest_subtree = target_tree_root
-    smallest_symmetric_difference = span_indices.symmetric_difference(
+    smallest_symmetric_difference = role_span.symmetric_difference(
         set(token.idx for token in tokens)
     )
+    smallest_key = len(smallest_symmetric_difference)
+    min_subtree_dict: defaultdict[int, list[Node]] = defaultdict(list)
+    min_subtree_dict[smallest_key].append(smallest_subtree)
     for node in LevelOrderIter(target_tree_root):
+        if node.idx == target_tree_root.idx:  # type: ignore
+            continue
         candidate_subtree_indices = set(n.idx for n in node.descendants).union(
             {node.idx}
         )
-        if len(span_indices.symmetric_difference(candidate_subtree_indices)) < len(
-            smallest_symmetric_difference
-        ):
-            smallest_subtree = node
-            smallest_symmetric_difference = span_indices.symmetric_difference(
-                candidate_subtree_indices
-            )
+        candidate_smallest_key = len(
+            role_span.symmetric_difference(candidate_subtree_indices)
+        )
+        if candidate_smallest_key <= smallest_key:
+            smallest_key = candidate_smallest_key
+            min_subtree_dict[smallest_key].append(node)
 
-    return smallest_subtree.idx
+    if len(min_subtree_dict[smallest_key]) == 1:
+        return min_subtree_dict[smallest_key][0].idx  # type: ignore
+    else:
+        if any(node.idx == role_idx for node in min_subtree_dict[smallest_key]):  # type: ignore
+            # If any of the nodes with minimal symmetric difference are the role_idx, return that
+            return role_idx
+        else:
+            # Otherwise, fallback to the original role_idx
+            return role_idx
 
 
 def english_to_universal_semantic_head(
@@ -97,7 +111,7 @@ def english_to_universal_semantic_head(
 
     semantic_root_node = parse_sentence_to_dep_tree(tokens, is_semantic=True)
     # The semantic subtree node is the smallest subtree that contains all nodes in span_indices
-    return match_span(span_indices, semantic_root_node, tokens)
+    return match_span(role_idx, span_indices, semantic_root_node, tokens)
 
 
 def universal_to_english_semantic_head(role_idx: int, tokens: Sentence) -> int:
@@ -115,7 +129,7 @@ def universal_to_english_semantic_head(role_idx: int, tokens: Sentence) -> int:
 
     syntactic_root_node = parse_sentence_to_dep_tree(tokens, is_semantic=False)
     # The syntactic subtree node is the smallest subtree that contains all nodes in span_indices
-    return match_span(span_indices, syntactic_root_node, tokens)
+    return match_span(role_idx, span_indices, syntactic_root_node, tokens)
 
 
 def span_to_dep_with_semantic_head(

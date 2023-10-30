@@ -95,6 +95,9 @@ def run(args: ScriptArgs):
             if not args.only_dependencies:
                 for frame in frames:
                     for role in frame["frame_roles"]:
+                        if role.role_idx == frame["frame_idx"]:
+                            # Skip role if it is the predicate
+                            continue
                         semantic_head_idx = english_to_universal_semantic_head(
                             role.role_idx,
                             parsed_sentence,
