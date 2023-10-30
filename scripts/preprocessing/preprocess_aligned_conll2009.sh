@@ -30,7 +30,7 @@ python scripts/preprocessing/preprocess_conll2009.py \
     --use_original_dep_labels
 
 python scripts/preprocessing/preprocess_conll2009.py \
-    --input data/trankit/conll2009/en/CoNLL2009_test-ood.txt \
+    --input data/trankit/conll2009/en/CoNLL2009_test_ood.txt \
     --output data/preprocessed_trankit/conll2009/en/CoNLL2009_test_ood.json \
     --add_predicate_pos \
     --keep_lemmas \
@@ -57,7 +57,7 @@ python scripts/preprocessing/preprocess_conll2009.py \
     --keep_dep_info
 
 python scripts/preprocessing/preprocess_conll2009.py \
-    --input data/trankit/conll2009/de/CoNLL2009_test-ood.txt \
+    --input data/trankit/conll2009/de/CoNLL2009_test_ood.txt \
     --output data/preprocessed_trankit/conll2009/de/CoNLL2009_test_ood.json \
     --keep_lemmas \
     --keep_dep_info
@@ -85,7 +85,7 @@ python scripts/preprocessing/preprocess_conll2009.py \
     --keep_dep_info
 
 python scripts/preprocessing/preprocess_conll2009.py \
-    --input data/trankit/conll2009/cs/CoNLL2009_test-ood.txt \
+    --input data/trankit/conll2009/cs/CoNLL2009_test_ood.txt \
     --output data/preprocessed_trankit/conll2009/cs/CoNLL2009_test_ood.json \
     --keep_lemmas \
     --czech \
