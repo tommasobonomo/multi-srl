@@ -97,11 +97,16 @@ def run(args: ScriptArgs):
                     for role in frame["frame_roles"]:
                         if role.role_idx == frame["frame_idx"]:
                             # Skip role if it is the predicate
-                            continue
-                        semantic_head_idx = english_to_universal_semantic_head(
-                            role.role_idx,
-                            parsed_sentence,
-                        )
+                            semantic_head_idx = role.role_idx
+                        else:
+                            semantic_head_idx = english_to_universal_semantic_head(
+                                role.role_idx,
+                                parsed_sentence,
+                            )
+                        if semantic_head_idx == frame["frame_idx"]:
+                            # Keep original idx if semantic one is predicate
+                            semantic_head_idx = role.role_idx
+
                         role.semantic_head_idx = semantic_head_idx
 
             # Save to file
