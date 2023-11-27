@@ -45,6 +45,27 @@ class TokenFeatures:
         self_dict = asdict(self)
         return self_dict
 
+    @classmethod
+    def from_dict(cls, token_dict: dict) -> "TokenFeatures":
+        synt_dep = DepRelation(**token_dict.get("synt_dep", {}))
+        sem_dep = DepRelation(**token_dict.get("sem_dep", {}))
+        frame_roles = [
+            FrameRole(**role_dict)
+            for role_dict in token_dict.get("frame_roles", [])
+            if role_dict
+        ]
+        return cls(
+            idx=token_dict["idx"],
+            text=token_dict.get("text"),
+            lemma=token_dict.get("lemma"),
+            pos=token_dict.get("pos"),
+            feat=token_dict.get("feat"),
+            synt_dep=synt_dep,
+            sem_dep=sem_dep,
+            frame_name=token_dict.get("frame_name"),
+            frame_roles=frame_roles,
+        )
+
     def __repr__(self) -> str:
         # String representation of a token
         return (

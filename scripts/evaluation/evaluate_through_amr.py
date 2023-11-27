@@ -1,7 +1,7 @@
+import json
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
-from amr_utils import graph_utils
 from amr_utils.alignments import AMR_Alignment
 from amr_utils.amr import AMR
 from amr_utils.amr_readers import AMR_Reader
@@ -10,7 +10,6 @@ from tqdm import tqdm
 from trankit import Pipeline
 from wasabi import msg
 
-from src.semantic_heads import english_to_universal_semantic_head
 from src.srl.data.srl_data_module import SrlDataModule
 from src.srl.data.srl_dataset import SrlDataset
 from src.srl.model.srl_parser import SrlParser
@@ -21,6 +20,10 @@ class ScriptArgs(Tap):
     input_amr_dir: Path  # The path to a directory containing AMR-annotated file
     vocabulary_path: Path  # The path to the vocabulary file for multi-srl
     checkpoint_path: Path  # The path to the checkpoint file for multi-srl
+    recompute: bool = False  # Whether to recompute the predictions
+    persist_dir: Path = (
+        Path("data") / "amr_data" / "predictions"
+    )  # The path to persist the results to
     use_unified_srl: bool = False  # Whether to use the unified SRL model
 
     def process_args(self) -> None:
@@ -29,6 +32,10 @@ class ScriptArgs(Tap):
                 f"Input file {self.input_amr_dir} does not exist or is not a directory.",
                 exits=1,
             )
+
+        if not (self.persist_dir.exists() and self.persist_dir.is_dir()):
+            msg.warn("Persist directory does not exist. Creating it...")
+            self.persist_dir.mkdir(parents=True)
 
 
 def load_model(checkpoint_path: Path, vocabulary_path: Path) -> SrlParser:
@@ -97,7 +104,7 @@ def parse_amr_sentence(
         batch_predictions = srl_module.predict_step(
             batch,
             0,
-            write_to_file=True,
+            write_to_file=False,
             use_preidentified_predicates=False,
             use_modified=use_modified,
         )
@@ -159,20 +166,49 @@ def run(args: ScriptArgs) -> None:
     msg.good("trankit pipeline loaded.")
 
     # Read in the AMR file
-    true_positives = 0
-    num_predictions = 0
-    for input_amr_file in tqdm(
-        args.input_amr_dir.glob("*.txt"), desc="Processing all files"
-    ):
-        amr_sentences = input_amr_file.read_text().split("\n\n")
+    total_true_positives = 0
+    total_num_predictions = 0
+    for input_amr_file in args.input_amr_dir.glob("*.txt"):
+        true_positives = 0
+        num_predictions = 0
 
-        # Parse the AMR sentences with SRL and DEP annotations
-        sentence_tokens = parse_amr_sentence(
-            amr_sentences[1:], pipeline, model, datamodule, args.use_unified_srl
-        )
-        msg.good("AMR sentences parsed w/ SRL and DEP.")
+        # Compute predictions if necessary
+        predictions_path = args.persist_dir / input_amr_file.with_suffix(".json").name
+        if args.recompute or not predictions_path.exists():
+            msg.info(f"Computing predictions for {input_amr_file.name}...")
 
-        # Read in the AMR file again, this time with the AMR graph
+            amr_sentences = input_amr_file.read_text().split("\n\n")
+
+            # Parse the AMR sentences with SRL and DEP annotations
+            sentence_tokens = parse_amr_sentence(
+                amr_sentences[1:], pipeline, model, datamodule, args.use_unified_srl
+            )
+
+            # Persist predicted sentences
+            with predictions_path.open("w+") as f:
+                json.dump(
+                    [[tok.to_dict() for tok in sent] for sent in sentence_tokens],
+                    f,
+                    indent=2,
+                )
+
+            msg.good(
+                f"Predictions computed and persisted to {predictions_path.as_posix()}"
+            )
+        else:
+            msg.info(f"Loading predictions from {predictions_path.as_posix()}...")
+
+            with predictions_path.open("r") as f:
+                raw_predictions = json.load(f)
+
+            sentence_tokens = [
+                [TokenFeatures.from_dict(tok) for tok in sent]
+                for sent in raw_predictions
+            ]
+
+            msg.good("Predictions loaded.")
+
+        # Read in the AMR file with the AMR graph
         amr_reader = AMR_Reader()
         amr_graphs, alignments = amr_reader.load(
             input_amr_file.as_posix(), output_alignments=True
@@ -200,7 +236,7 @@ def run(args: ScriptArgs) -> None:
                     # role_node can be None if it is not included in the AMR graph
                     # We still increase the number of predictions in this case
                     if role_node is not None:
-                        # Check if the frame and role are directly connected
+                        # Check if the frame and role are connected
                         if are_directly_connected(frame_node, role_node):  # type: ignore
                             true_positives += 1
                         # shortest_path = graph_utils.get_shortest_path(
@@ -212,9 +248,18 @@ def run(args: ScriptArgs) -> None:
                     if frame_node != role_node:
                         num_predictions += 1
 
-    msg.info(f"True positives: {true_positives}")
-    msg.info(f"Predictions: {num_predictions}")
-    msg.info(f"Precision: {true_positives / num_predictions}")
+        msg.info(f"File: {input_amr_file.name}")
+        msg.info(f"True positives: {true_positives}")
+        msg.info(f"Predictions: {num_predictions}")
+        msg.info(f"Precision: {true_positives / num_predictions}")
+
+        total_true_positives += true_positives
+        total_num_predictions += num_predictions
+
+    msg.divider("Total")
+    msg.info(f"Total true positives: {total_true_positives}")
+    msg.info(f"Total predictions: {total_num_predictions}")
+    msg.info(f"Total precision: {total_true_positives / total_num_predictions}")
 
 
 if __name__ == "__main__":
