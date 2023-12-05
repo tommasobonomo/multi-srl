@@ -2,12 +2,16 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
+import networkx as nx
+import torch
 from amr_utils.alignments import AMR_Alignment
 from amr_utils.amr import AMR
 from amr_utils.amr_readers import AMR_Reader
+from amr_utils.graph_utils import get_shortest_path
 from tap import Tap
 from tqdm import tqdm
 from trankit import Pipeline
+from transformers.tokenization_utils_base import BatchEncoding
 from wasabi import msg
 
 from src.srl.data.srl_data_module import SrlDataModule
@@ -25,6 +29,7 @@ class ScriptArgs(Tap):
         Path("data") / "amr_data" / "predictions"
     )  # The path to persist the results to
     use_unified_srl: bool = False  # Whether to use the unified SRL model
+    cuda: bool = False  # Whether to use the CPU instead of the GPU
 
     def process_args(self) -> None:
         if not (self.input_amr_dir.exists() and self.input_amr_dir.is_dir()):
@@ -33,18 +38,38 @@ class ScriptArgs(Tap):
                 exits=1,
             )
 
+        if self.use_unified_srl:
+            self.persist_dir = self.persist_dir / "unified"
+        else:
+            self.persist_dir = self.persist_dir / "standard"
+
         if not (self.persist_dir.exists() and self.persist_dir.is_dir()):
             msg.warn("Persist directory does not exist. Creating it...")
             self.persist_dir.mkdir(parents=True)
 
 
-def load_model(checkpoint_path: Path, vocabulary_path: Path) -> SrlParser:
+def transfer_to_cuda(element):
+    if isinstance(element, dict) or isinstance(element, BatchEncoding):
+        for key, val in element.items():
+            element[key] = transfer_to_cuda(val)
+    elif isinstance(element, list):
+        for idx, val in enumerate(element):
+            element[idx] = transfer_to_cuda(val)
+    elif isinstance(element, torch.Tensor):
+        element = element.cuda()
+
+    return element
+
+
+def load_model(checkpoint_path: Path, vocabulary_path: Path, cuda: bool) -> SrlParser:
     model = SrlParser.load_from_checkpoint(
         checkpoint_path.as_posix(), vocabulary_path=vocabulary_path
     )
     model.eval()
     model.use_sense_candidates = False
     model.predictions_path = "amr_predictions.json"
+    if cuda:
+        model.cuda()
 
     return model
 
@@ -54,6 +79,7 @@ def load_datamodule(model: SrlParser, vocabulary_path: Path) -> SrlDataModule:
         vocabulary_path=vocabulary_path.as_posix(),
         language_model_name=model.hparams.language_model_name,  # type: ignore
         num_workers=2,
+        batch_size=8,
     )
     return datamodule
 
@@ -97,18 +123,27 @@ def parse_amr_sentence(
     ]
     # Get SRL annotations
     srl_datamodule.pred_data = SrlDataset.load_sentences(trankit_outs)  # type: ignore
-    predictions = {}
+    raw_predictions = []
     for batch in tqdm(
         srl_datamodule.predict_dataloader(), desc="Running SRL", leave=False
     ):
-        batch_predictions = srl_module.predict_step(
-            batch,
-            0,
-            write_to_file=False,
-            use_preidentified_predicates=False,
-            use_modified=use_modified,
+        # Move all tensors to GPU if not prevented by args
+        samples, labels = batch
+        if args.cuda:
+            samples = transfer_to_cuda(samples)
+            labels = transfer_to_cuda(labels)
+        raw_predictions.append(
+            srl_module.predict_step(
+                (samples, labels),
+                0,
+                write_to_file=False,
+                use_preidentified_predicates=False,
+                use_modified=use_modified,
+            )
         )
-        predictions.update(batch_predictions)  # type: ignore
+    predictions = {}
+    for pred in raw_predictions:
+        predictions.update(pred)
 
     # Add SRL and dep annotations to tokens
     for sent_idx, (trankit_out, srl_pred) in enumerate(
@@ -135,31 +170,79 @@ def parse_amr_sentence(
     return sentence_tokens
 
 
+def parse_as_networkx(amr_graph: AMR) -> nx.DiGraph:
+    nx_graph = nx.DiGraph()
+    for source, edge_type, target in amr_graph.edges:
+        nx_graph.add_edge(source, target, label=edge_type)
+    return nx_graph
+
+
 def token2node(
     token_idx: int, amr_graph: AMR, alignments: List[AMR_Alignment]
 ) -> Optional[str]:
     token_alignment = amr_graph.get_alignment(alignments, token_id=token_idx)
     if len(token_alignment.nodes) > 0:
         return token_alignment.nodes[0]
-    elif len(token_alignment.edges) > 0:
-        return token_alignment.edges[0][-1]
     else:
         return None
 
 
-def are_directly_connected(source_node: str, target_node: str) -> bool:
-    return (
-        source_node in target_node
-        and target_node.startswith(source_node)
-        and len(target_node.split(".")) == (len(source_node.split(".")) + 1)
+def _cluster_nodes(amr_graph: AMR, node: str) -> str:
+    # If all sibling nodes are connected to the parent node by edges that are not
+    # :ARGx, then we return the parent node. Otherwise, we return the original node.
+
+    # Get the parent node
+    parent_node = ".".join(node.split(".")[:-1])
+    if parent_node == "":
+        # We've reached the root node
+        return node
+    sibling_nodes = [
+        (target, edge_type)
+        for source, edge_type, target in amr_graph.edges
+        if source == parent_node
+    ]
+    if all(not edge_type.startswith(":ARG") for _, edge_type in sibling_nodes):
+        return parent_node
+    else:
+        return node
+
+
+def cluster_nodes(amr_graph: AMR, node: str) -> str:
+    possible_cluster = _cluster_nodes(amr_graph, node)
+    if possible_cluster == node:
+        return node
+    else:
+        return cluster_nodes(amr_graph, possible_cluster)
+
+
+def are_directly_connected(
+    nx_graph: nx.DiGraph, source_node: str, target_node: str
+) -> bool:
+    try:
+        shortest_path = nx.shortest_path(nx_graph, source_node, target_node)
+        return True
+    except nx.NetworkXNoPath:
+        return False
+
+    # Get all edges in the shortest path
+    edges_of_shortest_path = [
+        (source, kind, target)
+        for source, target, kind in nx_graph.edges.data("label")  # type: ignore
+        if source in shortest_path and target in shortest_path
+    ]
+    # The two nodes are connected if there is a path between them and there is at most
+    # one ARG edge between them
+    num_arg_edges = sum(
+        1 for _, kind, _ in edges_of_shortest_path if kind.startswith(":ARG")
     )
+    return num_arg_edges <= 1
 
 
 def run(args: ScriptArgs) -> None:
     msg.divider("Alignment Evaluation")
 
     # Load the model and datamodule
-    model = load_model(args.checkpoint_path, args.vocabulary_path)
+    model = load_model(args.checkpoint_path, args.vocabulary_path, args.cuda)
     datamodule = load_datamodule(model, args.vocabulary_path)
     msg.good("multi-srl model and datamodule loaded.")
     pipeline = Pipeline(lang="english", gpu=True, embedding="xlm-roberta-large")
@@ -211,7 +294,7 @@ def run(args: ScriptArgs) -> None:
         # Read in the AMR file with the AMR graph
         amr_reader = AMR_Reader()
         amr_graphs, alignments = amr_reader.load(
-            input_amr_file.as_posix(), output_alignments=True
+            input_amr_file.as_posix(), output_alignments=True, remove_wiki=True
         )
         msg.good("AMR graphs loaded.")
 
@@ -222,6 +305,9 @@ def run(args: ScriptArgs) -> None:
 
         # Iterate over the sentences and compare the alignments
         for sentence, amr_graph in zip(sentence_tokens, amr_graphs):
+            # Parse amr_graph as a networkx graph
+            nx_graph = parse_as_networkx(amr_graph)
+
             # Loop over frames
             for token in sentence:
                 if token.frame_name is None:
@@ -232,21 +318,18 @@ def run(args: ScriptArgs) -> None:
                     continue
                 # Loop over roles
                 for role in token.frame_roles:
+                    if role.role_idx == token.idx:
+                        # This is the frame itself, we skip it because it is always connected
+                        # to itself
+                        continue
                     role_node = token2node(role.role_idx, amr_graph, alignments)
                     # role_node can be None if it is not included in the AMR graph
                     # We still increase the number of predictions in this case
                     if role_node is not None:
                         # Check if the frame and role are connected
-                        if are_directly_connected(frame_node, role_node):  # type: ignore
+                        if are_directly_connected(nx_graph, frame_node, role_node):  # type: ignore
                             true_positives += 1
-                        # shortest_path = graph_utils.get_shortest_path(
-                        #     amr_graph, frame_node, role_node
-                        # )
-                        # if shortest_path is not None and len(shortest_path) == 2:
-                        #     # There's a direct edge between the frame and role
-                        #     true_positives += 1
-                    if frame_node != role_node:
-                        num_predictions += 1
+                    num_predictions += 1
 
         msg.info(f"File: {input_amr_file.name}")
         msg.info(f"True positives: {true_positives}")
