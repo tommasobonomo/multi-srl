@@ -1,6 +1,9 @@
 import argparse
 import json
+import os
+
 import requests
+from tqdm import tqdm
 
 
 def read_data(input_path: str):
@@ -29,7 +32,7 @@ if __name__ == "__main__":
     all_original_tokens = set()
     all_modified_tokens = set()
 
-    for sentence_id, sentence_data in data.items():
+    for sentence_id, sentence_data in tqdm(data.items()):
         words = sentence_data["words"]
         sentence_words = " ".join(words)
         annotations = sentence_data["annotations"]
@@ -37,6 +40,9 @@ if __name__ == "__main__":
         print("Sentence ID: {}".format(sentence_id))
         print(sentence_words)
         print()
+
+        # Get language from environment variable
+        lang = os.environ.get("LANGUAGES")
 
         # Do a POST request to the server.
         # curl -X 'POST' \
@@ -47,9 +53,9 @@ if __name__ == "__main__":
         #         {"text":"The quick brown fox jumps over the lazy dog.", "lang":"EN"},
         #     ]'
         response = requests.post(
-            "http://127.0.0.1:12345/api/model",
+            "http://localhost/api/model",
             headers={"Content-Type": "application/json"},
-            json=[{"text": sentence_words, "lang": "EN"}],
+            json=[{"text": sentence_words, "lang": lang}],
         )
 
         # Get the response data as a python object.
